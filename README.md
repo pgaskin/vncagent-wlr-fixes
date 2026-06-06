@@ -71,7 +71,7 @@ After=graphical-session.target
 Requisite=graphical-session.target
 
 [Service]
-ExecStart=/usr/bin/bwrap --bind / / --dev-bind /dev/uinput /dev/uinput --bind /usr/bin/vncagent-wlr /usr/bin/vncagent-x11 /usr/local/bin/wl-uinput-proxy /usr/bin/vncserver-x11
+ExecStart=/usr/bin/bwrap --bind / / --dev-bind /dev/uinput /dev/uinput --setenv LD_PRELOAD /usr/local/lib64/vnc/force-input-flush.so --bind /usr/bin/vncagent-wlr /usr/bin/vncagent-x11 /usr/local/bin/wl-uinput-proxy /usr/bin/vncserver-x11
 Restart=always
 
 RestartSec=10s
