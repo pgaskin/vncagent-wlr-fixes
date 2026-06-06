@@ -1,0 +1,44 @@
+#!/usr/bin/env bpftrace --unsafe
+
+END {
+    printf("\n=== pointer event latency ===\n");
+    clear(@oldest_ns);
+    clear(@newest_ns);
+
+    printf("\n");
+    printf("marshals: %d\n", @marshals);
+    clear(@marshals);
+    printf("flushes: %d\n", @flushes);
+    clear(@flushes);
+    printf("worst: %d us\n", @max_oldest_us);
+    clear(@max_oldest_us);
+
+    printf("\n");
+    printf("latency for oldest event (us):\n");
+    print(@latency_oldest_us);
+    clear(@latency_oldest_us);
+
+    printf("\n");
+    printf("latency for newest event (us):\n");
+    print(@latency_newest_us);
+    clear(@latency_newest_us);
+}
+
+// function which calls wl_proxy_marshal for pointer events (sub_4245e0)
+uprobe:/usr/bin/vncagent-wlr:0x245e0 /pid == $1/ {
+    if (@oldest_ns == 0) { @oldest_ns = nsecs; }  // first unsent event in this batch
+    @newest_ns = nsecs;                            // most recent event
+    @marshals  = @marshals + 1;
+}
+
+// called in the screencopy loop
+uretprobe:/usr/lib64/libwayland-client.so.0:wl_display_flush /pid == $1 && retval > 0 && @oldest_ns != 0/ {
+    $now = nsecs;
+    $oldest_us = ($now - @oldest_ns) / 1000;
+    @latency_oldest_us = hist($oldest_us);
+    @latency_newest_us = hist(($now - @newest_ns) / 1000);
+    if ($oldest_us > @max_oldest_us) { @max_oldest_us = $oldest_us; }
+    @flushes = @flushes + 1;
+    @oldest_ns = 0;
+    @newest_ns = 0;
+}
