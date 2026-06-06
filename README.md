@@ -30,9 +30,25 @@ For 7.17.0, you'll need:
   - `zwlr_data_control_manager_v1`
 - If your compositor is now sway (especially if it's Smithay-based), you'll want [wl-uinput-proxy](https://github.com/pgaskin/wl-uinput-proxy) to fix the virtual pointer/keyboard.
   - If you use this, you need write access to `/dev/uinput`.
+  - The commands below assume you build it into `/usr/local/bin/wl-uinput-proxy`.
+  - If you don't use this, just remove it from the commands.
+- The [force-input-flush.so](./input-flush/) shim.
+  - The commands below assume you build it into `/usr/local/lib64/vnc/force-input-flush.so`.
 - Bubblewrap.
 
 This will work well for basic single-monitor usage, except for client-to-server clipboard and missing client-side cursor support.
+
+To build the shims:
+
+```bash
+# wl-uinput-proxy
+cargo install --root /tmp --force wl-uinput-proxy@0.0.1
+sudo install -Dm755 /tmp/bin/wl-uinput-proxy /usr/local/bin/
+
+# force-input-flush
+gcc -Wall -Wextra -shared -fPIC -O2 -o /tmp/force-input-flush.so ./input-flush/force-input-flush.c -ldl
+sudo install -Dm644 /tmp/force-input-flush.so /usr/local/lib64/vnc/
+```
 
 You can start the server with:
 
@@ -40,6 +56,7 @@ You can start the server with:
 bwrap \
   --bind / / \
   --dev-bind /dev/uinput /dev/uinput \
+  --setenv LD_PRELOAD /usr/local/lib64/vnc/force-input-flush.so \
   --bind /usr/bin/vncagent-wlr /usr/bin/vncagent-x11 \
   /usr/local/bin/wl-uinput-proxy \
   /usr/bin/vncserver-x11
@@ -69,6 +86,8 @@ WantedBy=niri.service
 
 #### Virtual keyboard/mouse on compositors which have broken/missing support
 
+Smithay-based compositors, including niri, have broken (niri-wm/niri#403, smithay/smithay#1903) virtual keyboard/pointer implementations. Sway works fine.
+
 I wrote a Wayland proxy which implements the `zwlr_virtual_pointer_v1` and `zwp_virtual_keyboard_v1` protocols using uinput. It works for other things too, not just RealVNC.
 
 This works pretty well, with the only real limitation being that it emulates a system input device, so it can't be bound to a specific Wayland seat, and it needs permission to write to `/dev/uinput`.
@@ -77,9 +96,11 @@ See [wl-uinput-proxy](https://github.com/pgaskin/wl-uinput-proxy).
 
 #### Bursty mouse/keyboard events and jittery mouse movements
 
-TODO: document my research and testing for this
+RealVNC's `vncagent-wlr` implmentation currently has a bug where it does not explicitly flush input events. As a result, they only get flushed in the screen capture loop, every ~60ms, causing the events to be delivered in bursts.
 
-TODO: write a shim or patch to fix it by always flushing after input events
+I write a shim which forces these to get flushed immediately, similar to how it works with `vncagent-x11` and XTEST.
+
+See [force-input-flush](./input-flush/).
 
 ### Status of vncagent-wlr
 
