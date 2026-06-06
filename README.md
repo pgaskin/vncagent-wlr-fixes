@@ -42,7 +42,7 @@ To build the shims:
 
 ```bash
 # wl-uinput-proxy
-cargo install --root /tmp --force wl-uinput-proxy@0.0.1
+cargo install --root /tmp --force wl-uinput-proxy@0.0.2
 sudo install -Dm755 /tmp/bin/wl-uinput-proxy /usr/local/bin/
 
 # force-input-flush
