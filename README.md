@@ -4,9 +4,10 @@ RealVNC Server 7.17.0 introduced hidden support for Wayland compositors. It gene
 
 This is nice since their proprietary UDP-based RTP/SCTP-wrapped RFB protocol performs much better than wayvnc, especially over non-local networks. I did spend some time a while ago reversing the protocol and was able to figure out everything but the handshake and a few encodings, but the custom handshake for their proprietary auth mechanism makes it annoying to implement (even the unencrypted one still signs packets using HMAC with a negotiated key).
 
-Last year, I considered writing a fake X11 server which implements just enough to run the server and proxy stuff to a Wayland compositor, but I didn't think it was worth the time compared to just sticking to X11 window managers.
-
 Now that they have basic Wayland support, I figured shimming or patching the bugs or compatibility issues would be the best way forward.
+
+> [!NOTE]
+> I have another solution to make RealVNC run on Wayland, and it's currently more stable and robust than `vncagent-wlr`, at the cost of ~1.5x CPU usage. See [xwlrvnc](https://github.com/pgaskin/xwlrvnc).
 
 You may also be interested in my [fixes and patches](https://github.com/pgaskin/vncpatch) for the RealVNC Android app, including an invisible menu (instead of the gigantic floating toolbar which gets in the way), dark mode support, key repeat support, and a fix for clicks randomly not working on high-frequency touchscreens (e.g., on a Pixel 9 or later).
 
@@ -145,12 +146,14 @@ Things that work:
 - The server-to-client clipboard.
 - Running in a nested compositor (provided that DISPLAY and WAYLAND_DISPLAY are set correctly).
 - Pausing for idle clients.
+- Audio.
 
 Thinks that don't:
 
 - Multi-monitor doesn't work at all.
   - It only displays one monitor.
   - Pointer input is mapped across all monitors, making it misaligned.
+- Display scaling doesn't work properly.
 - The client-to-server clipboard (i.e., pasting) doesn't work.
   - Based on some preliminary static analysis, I think this is because `vncserverui` (which is running in Xwayland) gets the IPC messages since `vncserver-x11-core` seems to be hardcoded to send them there (this makes sense given how system-mode VNC works on X11). The agent has an internal `EnableClipboard` option to have it handle the clipboard itself, which makes server-to-client work, but the client-to-server IPC messages still don't get delivered to the agent.
 - Client-side cursor doesn't work.
@@ -169,6 +172,6 @@ Compositor compatibility issues:
 - GNOME and KDE use `libei` via `xdg-desktop-portal` and also don't implement screencopy.
 - The `ext_image_copy_capture_v1` is intended to replace `screencopy`
 
-I didn't test the proprietary extensions like file transfer, audio, chat, relative mouse position, and audio since I have other solutions for that on machines I need it for (e.g., [spicy-kvm](https://github.com/pgaskin/spicy-kvm)).
+I didn't test most of the proprietary extensions like file transfer, chat, relative mouse position, and audio since I have other solutions for that on machines I need it for (e.g., [spicy-kvm](https://github.com/pgaskin/spicy-kvm)).
 
 I also didn't test advanced features like input blocking and screen blanking.
